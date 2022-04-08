@@ -1,44 +1,32 @@
-#ifndef KAORI_HEAP_
-#define KAORI_HEAP_
+#ifndef DYNA_HEAP_H
+#define DYNA_HEAP_H
 
 #include "../../stdafx.h"
 #include <pthread.h>
+typedef struct MemBlock_t MemBlock_t;
 
-enum {
-    EDEN = 0,
-    SURV = 1,
-    OLDGEN = 2,
+typedef struct {
+    MemBlock_t* memory;
+    size_t size;
+    size_t rest;
+    MemBlock_t* start;
+    MemBlock_t* end;
+    pthread_mutex_t mtx;
+} Heap_t;
+
+struct MemBlock_t {
+    size_t size;
+    Heap_t* heap;
+    byte_t data[0];
+    MemBlock_t* prev;
+    MemBlock_t* next;
 };
 
+Heap_t* newHeap(size_t size);
+void deleteHeap(Heap_t* heap);
+void* firstFit(Heap_t* heap, size_t size);
+void* worstFit(Heap_t* heap, size_t size);
+void release(void* ptr);
 
-#ifdef __cplusplus
-extern "C" {
-#endif 
 
-
-void memInit(size_t, size_t, size_t);
-void* vmalloc(size_t);
-void* gcalloc(size_t);
-void gcfree(void*);
-int isLegal(void* mb, int genNo);
-
-extern void* heap;
-extern size_t heapSize;
-extern size_t restMemory;
-
-extern size_t mediumSize;
-extern size_t largeSize;
-
-extern void* gen[3];
-extern size_t genSize[3];
-
-extern void* freeList[3];
-extern void* flEnd[3];
-extern pthread_mutex_t flMtx[3];
-extern void* toSurv;
-
-#ifdef __cpluscplus
-}
-#endif
-
-#endif
+#endif // DYNA_HEAP_H
