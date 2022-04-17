@@ -1,5 +1,5 @@
-#ifndef MEMORY_STDAFX_H_
-#define MEMORY_STDAFX_H_
+#ifndef GC_STDAFX_
+#define GC_STDAFX_
 
 #include <stdio.h>
 #include <stdlib.h>
