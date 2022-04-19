@@ -4,6 +4,10 @@
         "mutex": "cpp",
         "thread": "cpp",
         "__mutex_base": "cpp",
-        "deque": "cpp"
+        "deque": "cpp",
+        "stdatomic.h": "c",
+        "list": "cpp",
+        "atomic": "c",
+        "memory": "c"
     }
 }

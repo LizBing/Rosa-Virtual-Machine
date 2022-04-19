@@ -3,7 +3,7 @@
 
 #include "../stdafx.h"
 
-struct GC_Object {
+struct Generational_Object {
     uint8_t colour : 1;
     uint8_t age : 4;
     size_t refCount : 59;
