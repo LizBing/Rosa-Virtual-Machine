@@ -5,7 +5,8 @@
 static size_t heapSize = 0;
 static void* heap = NULL;
 size_t spaceSize = 0;
-void* space[2] = { NULL };
+void* fromSpace = NULL,
+    * toSpace = NULL;
 
 static size_t thrdCount = 0;
 
@@ -22,8 +23,9 @@ int plgc_init(void* start, size_t size, size_t ThrdCount) {
     thrdCount = ThrdCount;
 
     spaceSize = size / 2;
-    space[0] = heap;
-    space[1] = heap + spaceSize;
+    extern void* brk_peak;
+    brk_peak = fromSpace = heap;
+    toSpace = heap + spaceSize;
 
     rootSetsSize = getMaxThrdCount - ThrdCount;
     rootSets = malloc(sizeof(RootSet_t) * rootSetsSize);

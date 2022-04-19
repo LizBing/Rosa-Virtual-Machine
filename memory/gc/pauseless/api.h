@@ -16,7 +16,10 @@ size_t plgc_usedMemory();
 size_t plgc_collectedMemory();
 size_t plgc_allocatedMemory();
 // clock_t plgc_timeCost();
-void* plgc_loadBarrier(void*, size_t);
+void* plgc_load(Ref_t*, size_t);
+void plgc_store(Ref_t*, size_t, void*);
+Ref_t* plgc_loadRef(Ref_t*, size_t);
+void plgc_storeRef(Ref_t*, size_t, Ref_t);
 
 typedef struct RootSet_t RootSet_t;
 struct RootSet_t {

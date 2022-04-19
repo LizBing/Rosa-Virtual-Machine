@@ -10,7 +10,6 @@ extern size_t rootSetsSize;
 
 int gc_signal = 0;
 
-
 void gc_start() {
     gc_signal = 1;
 }
@@ -24,7 +23,6 @@ void gc_start() {
     pthread_mutex_lock(&sychMtx); \
     while(!b); \
 
-volatile static Ref_t fpeak = NULL;
 void plgc_major() {
     static volatile size_t sychCount = 0;
 
@@ -37,6 +35,7 @@ void plgc_major() {
     volatile static int isRemapping = 0;
 
     volatile static int isCompacting = 0;
+    volatile static Ref_t fpeak = NULL;
     static pthread_mutex_t fpMtx = PTHREAD_MUTEX_INITIALIZER;
 start:
     pthread_mutex_lock(&sychMtx);
@@ -74,6 +73,7 @@ start:
             fpeak = (byte_t*)fpeak->start + fpeak->size;
             pthread_mutex_unlock(&fpMtx);
 
+            if(!r) return;
             r = compact(r);
             for(size_t i = 0; i < r->refCount; ++i) 
                 r->start[i] = compact(r->start[i]);
