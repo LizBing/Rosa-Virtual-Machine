@@ -14,7 +14,7 @@ RootSet_t* plgc_pushRootSet(RootSet_t* rs, Ref_t* begin, size_t size) {
 
     pthread_rwlock_wrlock(&rs->rwl);
     rs->next = new;
-    pthread_rwlock_wrunlock(&rs->rwl);
+    pthread_rwlock_unlock(&rs->rwl);
 
     return new;
 }
@@ -24,7 +24,7 @@ void plgc_destroyRootSet(RootSet_t* prev) {
 
     pthread_rwlock_wrlock(&prev->rwl);
     prev->next = NULL;
-    pthread_rwlock_wrunlock(&prev->rwl);
+    pthread_rwlock_unlock(&prev->rwl);
 
     pthread_rwlock_destroy(&rb->rwl);
     free(rb);

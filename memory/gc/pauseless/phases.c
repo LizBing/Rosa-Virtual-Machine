@@ -10,6 +10,12 @@ extern size_t rootSetsSize;
 
 int gc_signal = 0;
 
+size_t collectedMemory = 0;
+
+size_t plgc_collectedMemory() {
+    return collectedMemory;
+}
+
 void gc_start() {
     gc_signal = 1;
 }
@@ -21,7 +27,11 @@ void gc_start() {
         sychCount = 0; \
     } \
     pthread_mutex_lock(&sychMtx); \
-    while(!b); \
+    while(!b); 
+
+void mark(RootSet_t* h);
+void remap(RootSet_t* t);
+Ref_t compact(Ref_t ref);
 
 void plgc_major() {
     static volatile size_t sychCount = 0;
@@ -126,6 +136,7 @@ Ref_t compact(Ref_t ref) {
     pthread_mutex_unlock(&ref->mtx);
     ref->newLoc = plgc_sbrk(ref->size);
     memcpy(ref->newLoc->start, ref->start, ref->size);
+    collectedMemory += ref->size + sizeof(Obj_t);
     ref->status = 2;
 
     return ref->status;
