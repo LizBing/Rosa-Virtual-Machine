@@ -1,8 +1,8 @@
-#ifndef DYNA_PAUSELESS_IMPL_
-#define DYNA_PAUSELESS_IMPL_
+#ifndef DYNA_LOCKLESS_IMPL_
+#define DYNA_LOCKLESS_IMPL_
 
 #include "stdafx.h"
-#include "plgc.h"
+#include "llgc.h"
 #include "../../../process/thread.h"
 
 typedef struct MemoryBlockInfo_t mbi_t;
@@ -28,9 +28,20 @@ struct RootSet_t {
 extern size_t gcThrdCount;
 extern rs_t* rootSets;
 extern size_t gcSpaceSize;
-extern volatile atomic_ptrdiff_t fromSpace, toSpace;
+extern atomic_ptrdiff_t fromSpace, toSpace;
+extern atomic_ptrdiff_t source;
 
-void plgc_impl_exchangeSpace();
-plgc_impl_testSpace(mbi_t*);
+extern _Atomic size_t collected;
+extern _Atomic size_t allocated;
+
+void llgc_impl_exchangeSpace();
+size_t llgc_impl_exchangeAlloc();
+int llgc_impl_testSpace(mbi_t*);
+int llgc_impl_testSource(mbi_t*);
+
+void llgc_impl_pushWorkList(mbi_t* mbi);
+mbi_t* llgc_impl_loadBarrier(atomic_ptrdiff_t* hdl);
+void* llgc_impl_gcThrdFunc(void* arg);
+void llgc_impl_main();
 
 #endif

@@ -8,4 +8,6 @@
 #include <stdatomic.h>
 #include <stdbool.h>
 
+typedef char byte_t;
+
 #endif
