@@ -6,7 +6,7 @@
 #include <condition_variable>
 
 struct Task_t {
-    void(*func)(void*);
+    void(*func)(int, void*);
     void* arg;
 };
 
@@ -18,7 +18,7 @@ std::atomic<size_t> activeCount;
 static std::mutex mtx;
 static std::deque<Task_t> taskQueue;
 
-static void manager() {
+static void manager(int thrdId) {
     while(1) {
         mtx.lock();
         Task_t task = { 0 };
@@ -29,7 +29,7 @@ static void manager() {
         mtx.unlock();
         if(task.func) {
             activeCount.store(activeCount.load() + 1);
-            task.func(task.arg);
+            task.func(thrdId, task.arg);
             activeCount.store(activeCount.load() - 1);
             taskCount.store(taskCount.load() - 1);
             completedTaskCount.store(completedTaskCount.load() + 1);
@@ -47,7 +47,7 @@ void thrdPoolInit(size_t size) {
     activeCount.store(0);
 
     for(int i = 0; i < size; ++i) {
-        std::thread(manager).detach();
+        std::thread(manager, i).detach();
     }
 }
 
@@ -67,7 +67,7 @@ size_t getActiveCount() {
     return activeCount.load();
 }
 
-void addTask(void(*task)(void*), void* arg) {
+void addTask(void(*task)(int, void*), void* arg) {
     std::lock_guard<std::mutex> l(mtx);
     taskQueue.push_back((Task_t){ task, arg });
 }

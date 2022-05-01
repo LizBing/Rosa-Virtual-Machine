@@ -16,14 +16,19 @@ void exchange() {
     pthread_rwlock_unlock(&fsrwl);
 }
 
-Ref_t plgc_sbrk(size_t size) {
+Ref_t plgc_sbrk(size_t size, size_t refCount) {
     static pthread_mutex_t mtx = PTHREAD_RWLOCK_INITIALIZER;
+
     pthread_mutex_lock(&mtx);
+
     size_t alloc_size = sizeof(Obj_t) + size;
-    void* temp = brk_peak;
+    Ref_t temp = brk_peak;
     brk_peak += alloc_size;
     allocatedMemory += alloc_size;
+    
     pthread_mutex_unlock(&mtx);
+
+    temp->refCount = refCount;
     return temp;
 }
 

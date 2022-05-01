@@ -43,7 +43,7 @@ Ref_t plgc_loadBarrier(Ref_t* pRef) {
     if(fromSpace <= ref && ref <= fromSpace + spaceSize) {
         pthread_rwlock_unlock(&fsrwl);
         pthread_mutex_lock(&ref->mtx);
-        return ref->start;
+        return ref;
     } pthread_rwlock_unlock(&fsrwl);
 
     *pRef = compact(ref);

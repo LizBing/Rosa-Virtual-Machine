@@ -27,7 +27,7 @@ int plgc_init(void* start, size_t size, size_t ThrdCount) {
     brk_peak = fromSpace = heap;
     toSpace = heap + spaceSize;
 
-    rootSetsSize = getMaxThrdCount - ThrdCount;
+    rootSetsSize = getMaxThrdCount() - ThrdCount;
     rootSets = malloc(sizeof(RootSet_t) * rootSetsSize);
     if(!rootSets) {
         return 1;
@@ -42,6 +42,8 @@ int plgc_init(void* start, size_t size, size_t ThrdCount) {
     for(int i = 0; i < ThrdCount; ++i) {
         addTask(plgc_major, NULL);
     }
+
+    return 0;
 }
 
 size_t plgc_thrdCount() {

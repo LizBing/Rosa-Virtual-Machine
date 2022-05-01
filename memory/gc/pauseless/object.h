@@ -5,8 +5,8 @@
 
 
 typedef struct Object_t {
-    // pthread_rwlock_t rwl;
-    pthread_mutex_t mtx;
+    pthread_rwlock_t rwl;
+    // pthread_mutex_t mtx;
     _Bool reachable : 1;
     // 0: hasn't copied. 1: is being copied. 2: already
     byte_t status : 2;

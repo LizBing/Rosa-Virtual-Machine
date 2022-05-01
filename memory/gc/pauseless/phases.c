@@ -26,7 +26,7 @@ void gc_start() {
         b = 1; \
         sychCount = 0; \
     } \
-    pthread_mutex_lock(&sychMtx); \
+    pthread_mutex_unlock(&sychMtx); \
     while(!b); 
 
 void mark(RootSet_t* h);
@@ -41,7 +41,7 @@ void plgc_major() {
 
     static size_t idx = 0;
     static pthread_mutex_t idxMtx = PTHREAD_MUTEX_INITIALIZER;
-    volatile static int isMarking = 1;
+    volatile static int isMarking = 0;
     volatile static int isRemapping = 0;
 
     volatile static int isCompacting = 0;
@@ -52,9 +52,12 @@ start:
     if(!lable) { 
         lable = 1; 
         exchange(); 
-        fpeak = toSpace; 
-        isMarking = 1;
+        fpeak = toSpace;
     }
+    pthread_mutex_unlock(&sychMtx);
+    synchronize(isMarking);
+    pthread_mutex_lock(&sychMtx);
+    if(lable) lable = 0;
     pthread_mutex_unlock(&sychMtx);
 
     while(!gc_signal);
@@ -72,7 +75,6 @@ start:
     } while(isMarking);
 
     synchronize(isCompacting);
-    
     do {
         pthread_mutex_lock(&fpMtx);
         if(!fpeak->size || fpeak >= fromSpace + spaceSize) {
@@ -83,10 +85,13 @@ start:
             fpeak = (byte_t*)fpeak->start + fpeak->size;
             pthread_mutex_unlock(&fpMtx);
 
-            if(!r) return;
             r = compact(r);
-            for(size_t i = 0; i < r->refCount; ++i) 
-                r->start[i] = compact(r->start[i]);
+            for(size_t i = 0; i < r->refCount; ++i) {
+                Ref_t* pSub = r->start + i;
+                if(!*pSub) continue;
+                if(fromSpace <= *pSub && *pSub < fromSpace + spaceSize) continue;
+                *pSub = compact(*pSub);
+            }
         }
     } while(isCompacting);
 
@@ -121,38 +126,43 @@ void remap(RootSet_t* t) {
 Ref_t compact(Ref_t ref) {
     if(!ref) return NULL;
 
-    pthread_mutex_lock(&ref->mtx);
-    if(1 == ref->status) {
-        pthread_mutex_unlock(&ref->mtx);
+    pthread_rwlock_rdlock(&ref->rwl);
+    if(0b01 & ref->status) {
+        pthread_rwlock_unlock(&ref->rwl);
         while(1 == ref->status);
         return ref->newLoc;
     }
-    if(2 == ref->status) {
-        pthread_mutex_unlock(&ref->mtx);
+    if(0b10  & ref->status) {
+        pthread_rwlock_unlock(&ref->rwl);
         return ref->newLoc;
-    }
+    } pthread_rwlock_unlock(&ref->rwl);
 
-    ref->status = 1;
-    pthread_mutex_unlock(&ref->mtx);
-    ref->newLoc = plgc_sbrk(ref->size);
+    pthread_rwlock_wrlock(&ref->rwl);
+    ref->status &= 0b01;
+    pthread_rwlock_unlock(&ref->rwl);
+    
+    ref->newLoc = plgc_sbrk(ref->size, ref->refCount);
     memcpy(ref->newLoc->start, ref->start, ref->size);
     collectedMemory += ref->size + sizeof(Obj_t);
-    ref->status = 2;
+    ref->status &= 0b10;
 
-    return ref->status;
+    return ref->newLoc;
 }
 
 void objMarking(Ref_t ref) {
     if(!ref) return;
+    if(fromSpace <= ref && ref < fromSpace + spaceSize) return;
 
-    pthread_mutex_lock(&ref->mtx);
-    if(ref->reachable) { pthread_mutex_unlock(&ref->mtx); return; }
-    ref->reachable = 1;
-    pthread_mutex_unlock(&ref->mtx);
-
+    pthread_rwlock_rdlock(&ref->rwl);
+    if(ref->reachable) { pthread_rwlock_unlock(&ref->rwl); return; }
     for(size_t i = 0; i < ref->refCount; ++i) {
         objMarking(ref->start[i]);
     }
+    pthread_rwlock_unlock(&ref->rwl);
+
+    pthread_rwlock_wrlock(&ref->rwl);
+    ref->reachable = 1;
+    pthread_rwlock_unlock(&ref->rwl);
 }
 
 void mark(RootSet_t* h) {
