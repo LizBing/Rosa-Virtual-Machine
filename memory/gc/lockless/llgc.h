@@ -21,7 +21,7 @@ void* llgc_malloc(size_t size, size_t refCount);
 size_t llgc_allocated();
 size_t llgc_collected();
 
-void** llgc_loadHdl(atomic_ptrdiff_t* hdl, size_t offs);
+void** llgc_loadRef(atomic_ptrdiff_t* hdl, size_t offs);
 void* llgc_load(atomic_ptrdiff_t* hdl, size_t offs);
 void llgc_store(atomic_ptrdiff_t* hdl, size_t offs, void* value);
 

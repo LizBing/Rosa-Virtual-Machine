@@ -24,7 +24,6 @@ void llgc_impl_main() {
 
         while(completedCount != gcThrdCount);
         size_t delta = llgc_impl_exchangeAlloc();
-        // atomic_fetch_add(&allocated, alloced);
         completedCount = 0; 
         markIdx = 0; remapIdx = 0;
         workListIter = workListBegin;
