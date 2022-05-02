@@ -1,7 +1,7 @@
 #include "impl.h"
 // #include "../../../process/thread.h"
 
-static rs_t* rootSets = NULL;
+rs_t* rootSets;
 
 rshdl_t llgc_getRootSet(int thrdId) {
     return rootSets + thrdId;

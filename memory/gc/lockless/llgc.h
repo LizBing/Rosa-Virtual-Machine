@@ -2,10 +2,16 @@
 #define DYNA_LOCKLESS_GC_
 
 typedef struct RootSet_t rs_t, *rshdl_t;
+#include "stdafx.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+int llgc_init(size_t GCThrdCount, size_t heapSize, void* heapStart);
+size_t llgc_thrdCount();
+size_t llgc_allocated();
+size_t llgc_collected();
 
 rshdl_t llgc_getRootSet(int thrdId);
 rshdl_t llgc_pushRootSet(rshdl_t prv, void* start, size_t refCount);

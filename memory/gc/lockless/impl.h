@@ -39,6 +39,8 @@ size_t llgc_impl_exchangeAlloc();
 int llgc_impl_testSpace(mbi_t*);
 int llgc_impl_testSource(mbi_t*);
 
+void* llgc_impl_sbrk(size_t size, size_t refCount, int countable);
+
 void llgc_impl_pushWorkList(mbi_t* mbi);
 mbi_t* llgc_impl_loadBarrier(atomic_ptrdiff_t* hdl);
 void* llgc_impl_gcThrdFunc(void* arg);

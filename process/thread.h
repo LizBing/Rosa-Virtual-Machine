@@ -15,7 +15,7 @@ size_t getCompletedTaskCount();
 size_t getMaxThrdCount();
 size_t getActiveCount();
 
-void addTask(void(*)(void*), void*);
+void addTask(void(*)(int, void*), void*);
 
 #ifdef __cplusplus
 }}

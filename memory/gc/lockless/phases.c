@@ -8,8 +8,11 @@ static atomic_int gcTrigger = 0;
 
 static atomic_int markIdx = 0;
 static atomic_int remapIdx = 0;
-static atomic_ptrdiff_t workListIter = NULL;
-static atomic_ptrdiff_t toSpaceIter = NULL;
+static atomic_ptrdiff_t toSpaceIter;
+
+static atomic_ptrdiff_t workListIter;
+static mbi_t* workListBegin;
+static atomic_ptrdiff_t workListEnd;
 
 static _Atomic size_t copied = 0;
 
@@ -30,7 +33,6 @@ void llgc_impl_main() {
         atomic_store(&gcCopyFlag, gcTrigger);
         while(completedCount != gcThrdCount);
         completedCount = 0;
-        atomic_fetch_add(&allocated, copied);
         atomic_fetch_add(&collected, delta - copied);
         atomic_store(&copied, 0);
 
@@ -38,8 +40,6 @@ void llgc_impl_main() {
     }
 }
 
-static mbi_t* workListBegin = NULL;
-static atomic_ptrdiff_t workListEnd = NULL;
 
 void llgc_impl_pushWorkList(mbi_t* mbi) {
     if(atomic_fetch_or(&mbi->status, 1 << 1) >> 1) return;
@@ -53,6 +53,7 @@ void llgc_impl_pushWorkList(mbi_t* mbi) {
 
 static void objMark() {
     mbi_t* obj = NULL;
+    if(!workListIter) return;
     while(obj = atomic_exchange(&workListIter, ((mbi_t*)atomic_load(&workListIter))->next)) {
         for(int i = 0; i < obj->refCount; ++i) {
             mbi_t* sub = obj->start[i];
@@ -66,10 +67,8 @@ static void mark() {
     int legalmarkIdx = 0;
     while((legalmarkIdx = atomic_fetch_add(&markIdx, 1)) < getMaxThrdCount()) {
         rshdl_t list = rootSets + legalmarkIdx;
-
         for(rshdl_t iter = atomic_load(&list->next); iter; ) {
             atomic_store(&iter->lock, 1);
-
             for(int i = 0; i < iter->refCount; ++i) {
                 mbi_t* mbi = iter->start[i];
                 if(llgc_impl_testSpace(mbi)) continue;
@@ -87,17 +86,18 @@ static void mark() {
 
 static void copy() {
     mbi_t* obj = NULL;
+    if(!workListIter) goto lable;
     while(obj = atomic_exchange(&workListIter, ((mbi_t*)atomic_load(&workListIter))->next)) {
         if(llgc_impl_testSpace(obj)) continue;
         if(obj->newAddr) continue;
         if(atomic_fetch_or(&obj->status, 1) & 0b01) continue;
         
-        obj->newAddr = llgc_malloc(obj->size, obj->refCount);
+        obj->newAddr = llgc_impl_sbrk(obj->size, obj->refCount, 0);
         memcpy(obj->newAddr->start, obj->start, obj->size);
         atomic_fetch_add(&copied, obj->size);
         obj->status = 0;
     }
-
+lable:
     atomic_fetch_add(&completedCount, 1);
 }
 
@@ -111,7 +111,7 @@ mbi_t* llgc_impl_loadBarrier(atomic_ptrdiff_t* hdl) {
         while(atomic_fetch_or(&mbi->status, 0b01));
         if(mbi->newAddr) continue;
 
-        mbi->newAddr = llgc_malloc(mbi->size, mbi->refCount);
+        mbi->newAddr = llgc_impl_sbrk(mbi->size, mbi->refCount, 0);
         memcpy(mbi->newAddr->start, mbi->start, mbi->size);
         atomic_fetch_add(&copied, mbi->size);
         mbi->status = 0;
