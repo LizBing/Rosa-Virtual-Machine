@@ -52,9 +52,8 @@ void llgc_impl_pushWorkList(mbi_t* mbi) {
 }
 
 static void objMark() {
-    mbi_t* obj = NULL;
-    if(!workListIter) return;
-    while(obj = atomic_exchange(&workListIter, ((mbi_t*)atomic_load(&workListIter))->next)) {
+    for(mbi_t* obj = atomic_load(&workListIter); obj; obj = atomic_load(&workListIter)) {
+        if(!atomic_compare_exchange_weak(&workListIter, obj, ((mbi_t*)atomic_load(&workListIter))->next)) continue;
         for(int i = 0; i < obj->refCount; ++i) {
             mbi_t* sub = obj->start[i];
             if(llgc_impl_testSpace(sub)) continue;
@@ -70,13 +69,14 @@ static void mark() {
         for(rshdl_t iter = atomic_load(&list->next); iter; ) {
             atomic_store(&iter->lock, 1);
             for(int i = 0; i < iter->refCount; ++i) {
-                mbi_t* mbi = iter->start[i];
+                mbi_t* mbi = atomic_load(iter->start + i);
                 if(llgc_impl_testSpace(mbi)) continue;
                 llgc_impl_pushWorkList(mbi);
             }
+            rshdl_t temp = iter;
             iter = atomic_load(&iter->next);
 
-            iter->lock = 0;
+            temp->lock = 0;
         }   
     }
 
@@ -85,9 +85,8 @@ static void mark() {
 }
 
 static void copy() {
-    mbi_t* obj = NULL;
-    if(!workListIter) goto lable;
-    while(obj = atomic_exchange(&workListIter, ((mbi_t*)atomic_load(&workListIter))->next)) {
+    for(mbi_t* obj = atomic_load(&workListIter); obj; obj = atomic_load(&workListIter)) {
+        if(!atomic_compare_exchange_weak(&workListIter, obj, ((mbi_t*)atomic_load(&workListIter))->next)) continue;
         if(llgc_impl_testSpace(obj)) continue;
         if(obj->newAddr) continue;
         if(atomic_fetch_or(&obj->status, 1) & 0b01) continue;
@@ -105,6 +104,7 @@ mbi_t* llgc_impl_loadBarrier(atomic_ptrdiff_t* hdl) {
     mbi_t* mbi = NULL;
     do {
         mbi_t* mbi = atomic_load(hdl);
+        if(!mbi) return mbi;
         if(llgc_impl_testSource(mbi)) return mbi;
         if(mbi->newAddr) continue;
 
@@ -132,9 +132,10 @@ static void remap() {
             for(int i = 0; i < iter->refCount; ++i) 
                 llgc_impl_loadBarrier(iter->start + i);
             
+            rshdl_t temp = iter;
             iter = atomic_load(&iter->next);
 
-            iter->lock = 0;
+            temp->lock = 0;
         }
     }
 

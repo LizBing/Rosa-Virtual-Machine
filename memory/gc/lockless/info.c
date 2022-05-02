@@ -15,6 +15,9 @@ int llgc_init(size_t GCThrdCount, size_t heapSize, void* heapStart) {
     gcSpaceSize = heapSize / 2;
     source = fromSpace = heapStart;
     toSpace = fromSpace + gcSpaceSize;
+    
+    llgc_impl_exchangeAlloc();
+    llgc_impl_exchangeSpace();
 
     pthread_t t = { 0 };
     pthread_create(&t, NULL, llgc_impl_main, NULL);

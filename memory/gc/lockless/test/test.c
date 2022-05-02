@@ -3,10 +3,17 @@
 
 int main() {
     thrdPoolInit(10);
-    llgc_init(2, 102400, malloc(102400));
+    llgc_init(10, 102400, malloc(102400));
 
-    clock_t c1 = clock();
-    while(clock() < c1 + 20000);
+    atomic_ptrdiff_t ptr = 0;
+    rshdl_t rs = llgc_getRootSet(0);
+    llgc_pushRootSet(rs, &ptr, 1);
+    /*
+    for(int i = 0; i < 102400; i++) {
+        atomic_store(&ptr, llgc_malloc(128, 0));
+    }
+    */
+    while(1) atomic_store(&ptr, llgc_malloc(128, 0));
 
     return 0;
 }

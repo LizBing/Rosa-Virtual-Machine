@@ -7,7 +7,7 @@ rshdl_t llgc_getRootSet(int thrdId) {
     return rootSets + thrdId;
 }
 
-rshdl_t llgc_pushRootSet(rshdl_t prv, void* start, size_t refCount) {
+rshdl_t llgc_pushRootSet(rshdl_t prv, void** start, size_t refCount) {
     rshdl_t new = malloc(sizeof(rs_t));
     if(!new) return NULL;
 
