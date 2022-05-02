@@ -13,7 +13,10 @@ int main() {
         atomic_store(&ptr, llgc_malloc(128, 0));
     }
     */
-    while(1) atomic_store(&ptr, llgc_malloc(128, 0));
+    while(1) {
+        void* mem = llgc_malloc(128, 0);
+        atomic_store(&ptr, mem);
+    }
 
     return 0;
 }
