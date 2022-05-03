@@ -1,7 +1,9 @@
 #include "../llgc.h"
 #include "../../../../process/thread.h"
 
-
+void test01() {
+    //
+}
 
 int main() {
     thrdPoolInit(1);
