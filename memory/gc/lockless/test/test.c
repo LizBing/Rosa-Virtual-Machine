@@ -3,17 +3,18 @@
 
 int main() {
     thrdPoolInit(1);
-    llgc_init(1, 1 << 24, malloc(1 << 24));
+    llgc_init(2, 1 << 24, malloc(1 << 24));
 
     atomic_ptrdiff_t ptr = 0;
     rshdl_t rs = llgc_getRootSet(0);
     llgc_pushRootSet(rs, &ptr, 1);
     
+    while(!llgc_timeCount());
     for(;;) {
         void* temp = llgc_malloc(128, 0);
-        if(!temp) return 1;
+        // if(!temp) return 1;
         atomic_store(&ptr, temp);
-        
+        printf("%p\n", temp);
     }
     
 /*
@@ -31,9 +32,9 @@ int main() {
             llgc_store(&ptr, sizeof(void*) * i, llgc_malloc(128, 0));
         }
     }
-    */
+*/
     
-    while(!llgc_timeCount());
+    
     printf("%zu, %zu\n", llgc_allocated(), llgc_collected());
     
 

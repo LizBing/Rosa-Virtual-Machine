@@ -19,6 +19,7 @@ size_t llgc_impl_exchangeAlloc() {
 
     size_t ret = (void*)peak - source;
     peak = source = toSpace;
+    
 
     atomic_store(&lock, 0);
     return ret;
@@ -27,14 +28,18 @@ size_t llgc_impl_exchangeAlloc() {
 void* llgc_impl_sbrk(size_t size, size_t refCount, int countable) {
     size_t brkSize = size + sizeof(mbi_t);
     mbi_t* addr = NULL;
+    int tested = 0, result = 0;
+lable:
     while(atomic_load(&lock) == -1);
     atomic_fetch_add(&lock, 1);
 
-    int tested = 0;
-lable:
     addr = atomic_fetch_add(&peak, brkSize);
-    if(addr + brkSize >= source + gcSpaceSize) {
-        if(tested) return NULL;
+    result = addr + brkSize > source + gcSpaceSize;
+    atomic_fetch_add(&lock, -1);
+    if(result) {
+        if(tested) {
+            return NULL;
+        }
         int gct = llgc_timeCount();
         while(gct == llgc_timeCount());
         tested = 1; goto lable;

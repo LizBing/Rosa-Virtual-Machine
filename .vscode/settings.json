@@ -8,6 +8,19 @@
         "stdatomic.h": "c",
         "list": "cpp",
         "atomic": "c",
-        "memory": "c"
+        "memory": "c",
+        "__hash_table": "c",
+        "__split_buffer": "c",
+        "__tree": "c",
+        "array": "c",
+        "bitset": "c",
+        "initializer_list": "c",
+        "set": "c",
+        "unordered_map": "c",
+        "unordered_set": "c",
+        "vector": "c",
+        "string": "c",
+        "string_view": "c",
+        "utility": "c"
     }
 }

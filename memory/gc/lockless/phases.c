@@ -3,16 +3,21 @@
 static atomic_bool gcCopyFlag = 0;
 static atomic_bool gcRemapFlag = 0;
 
+static atomic_int receivedCount = 0;
 static atomic_int completedCount = 0;
 static atomic_int gcTrigger = 0;
 
 static atomic_int markIdx = 0;
 static atomic_int remapIdx = 0;
-static atomic_ptrdiff_t toSpaceIter;
+static atomic_ptrdiff_t toSpaceIter = 0;
 
-static atomic_ptrdiff_t workListIter;
-static mbi_t* workListBegin;
-static atomic_ptrdiff_t workListEnd;
+static atomic_ptrdiff_t workListIter = 0;
+static mbi_t* workListBegin = NULL;
+static atomic_ptrdiff_t workListEnd = 0;
+
+static atomic_ptrdiff_t remapListIter = 0;
+static mbi_t* remapListBegin = NULL;
+static atomic_ptrdiff_t remapListEnd = 0;
 
 static _Atomic size_t copied = 0;
 
@@ -20,42 +25,51 @@ atomic_int gcTimeCount = 0;
 int llgc_timeCount() { return atomic_load(&gcTimeCount); }
 
 void llgc_impl_main() {
-    for(; ; atomic_fetch_add(&gcTimeCount, 1)) {
+    while(1) {
         llgc_impl_exchangeSpace();
         atomic_store(&gcTrigger, !gcTrigger);
-        workListEnd = NULL;
 
-        while(completedCount != gcThrdCount);
+        while(!atomic_compare_exchange_weak(&completedCount, &gcThrdCount, 0));
         size_t delta = llgc_impl_exchangeAlloc();
-        completedCount = 0; 
+        atomic_fetch_add(&gcTimeCount, 1);
         markIdx = 0; remapIdx = 0;
         workListIter = workListBegin;
         toSpaceIter = toSpace;
 
+        remapListEnd = NULL;
         atomic_store(&gcCopyFlag, gcTrigger);
-        while(completedCount != gcThrdCount);
-        completedCount = 0;
+        while(!atomic_compare_exchange_weak(&completedCount, &gcThrdCount, 0));
         atomic_fetch_add(&collected, delta - copied);
         atomic_store(&copied, 0);
-
+        
+        workListEnd = NULL;
         atomic_store(&gcRemapFlag, gcTrigger);
+        while(!atomic_compare_exchange_weak(&completedCount, &gcThrdCount, 0));
     }
 }
 
 void llgc_impl_pushWorkList(mbi_t* mbi) {
     if(atomic_fetch_or(&mbi->status, 0b10) & 0b10) return;
-    // printf("%p, %zu\n", mbi, mbi->refCount);
 
     mbi_t* prv = atomic_exchange(&workListEnd, mbi);
-    if(!prv) { workListIter = workListBegin = mbi; return; }
+    if(!prv) { workListBegin = mbi; atomic_store(&remapListIter, mbi); return; }
 
     prv->next = mbi;
     mbi->next = NULL;
 }
 
+static void pushRemapList(mbi_t* mbi) {
+    mbi_t* prv = atomic_exchange(&remapListEnd, mbi);
+    if(!prv) { remapListBegin = mbi; atomic_store(&remapListIter, mbi); return; }
+    prv->next = mbi;
+    mbi->next = NULL;
+}
+
 static void objMark() {
-    for(mbi_t* obj = atomic_load(&workListIter); obj; obj = atomic_load(&workListIter)) {
-        if(!atomic_compare_exchange_weak(&workListIter, &obj, ((mbi_t*)atomic_load(&workListIter))->next)) continue;
+    mbi_t* obj = NULL, *next = NULL;
+    while(obj = atomic_load(&workListIter)) {
+        next = obj->next;
+        if(atomic_compare_exchange_weak(&workListIter, &obj, next))
         for(int i = 0; i < obj->refCount; ++i) {
             mbi_t* sub = obj->start[i];
             if(llgc_impl_testSpace(sub)) continue;
@@ -88,34 +102,44 @@ static void mark() {
 }
 
 static void copy() {
-    for(mbi_t* obj = atomic_load(&workListIter); obj; obj = atomic_load(&workListIter)) {
-        if(!atomic_compare_exchange_weak(&workListIter, &obj, ((mbi_t*)atomic_load(&workListIter))->next)) continue;
+    mbi_t* obj = NULL, *next = NULL;
+    mbi_t* temp = NULL;
+    while(obj = atomic_load(&workListIter)) {
+        next = obj->next;
+        if(!atomic_compare_exchange_weak(&workListIter, &obj, next)) continue;
         if(llgc_impl_testSpace(obj)) continue;
+        if(atomic_load(&obj->newAddr)) continue;
         if(atomic_fetch_or(&obj->status, 1) & 1) continue;
-        if(atomic_load(&obj->newAddr)) { atomic_fetch_and(&obj->status, 0b10); continue; }
         
-        obj->newAddr = llgc_impl_sbrk(obj->size, obj->refCount, 0);
-        memcpy(((mbi_t*)obj->newAddr)->start, obj->start, obj->size);
-        atomic_fetch_add(&copied, obj->size);
+        temp = llgc_impl_sbrk(obj->size, obj->refCount, 0);
+        if(!temp) continue;
+        memcpy(temp->start, obj->start, obj->size);
+        atomic_store(&obj->newAddr, temp);
+        pushRemapList(temp);
+
+        atomic_fetch_add(&copied, obj->size + sizeof(mbi_t));
         atomic_fetch_and(&obj->status, 0b10);
     }
-lable:
     atomic_fetch_add(&completedCount, 1);
 }
 
 mbi_t* llgc_impl_loadBarrier(atomic_ptrdiff_t* hdl) {
     mbi_t* mbi = NULL;
+    mbi_t* temp = NULL;
     do {
         mbi = atomic_load(hdl);
-        if(!mbi) return NULL;
-        if(llgc_impl_testSource(mbi)) return mbi;
-
+        if(!mbi) { return NULL; }
+        if(llgc_impl_testSource(mbi)) { return mbi; }
+        if(atomic_load(&mbi->newAddr)) continue;
         if(atomic_fetch_or(&mbi->status, 1) & 1) { while(atomic_load(&mbi->status) & 0b01); continue; }
-        if(atomic_load(&mbi->newAddr)) { atomic_fetch_and(&mbi->status, 0b10); continue; }
 
-        mbi->newAddr = llgc_impl_sbrk(mbi->size, mbi->refCount, 0);
-        memcpy(((mbi_t*)mbi->newAddr)->start, mbi->start, mbi->size);
-        atomic_fetch_add(&copied, mbi->size);
+        temp = llgc_impl_sbrk(mbi->size, mbi->refCount, 0);
+        if(!temp) goto lable;
+        memcpy(temp->start, mbi->start, mbi->size);
+        mbi->newAddr = temp;
+
+        atomic_fetch_add(&copied, mbi->size + sizeof(mbi_t));
+lable:
         atomic_fetch_and(&mbi->status, 0b10);
     } while(atomic_load(hdl) != mbi);
 
@@ -124,6 +148,7 @@ mbi_t* llgc_impl_loadBarrier(atomic_ptrdiff_t* hdl) {
 }
 
 static void remap() {
+    atomic_fetch_add(&completedCount, 1);
     int legalmarkIdx = 0;
     while((legalmarkIdx = atomic_fetch_add(&remapIdx, 1)) < getMaxThrdCount()) {
         rshdl_t list = rootSets + legalmarkIdx;
@@ -142,11 +167,12 @@ static void remap() {
         }
     }
 
-    mbi_t* mbi = NULL;
-    while(llgc_impl_testSource(mbi = atomic_fetch_add(&toSpaceIter, ((mbi_t*)atomic_load(&toSpaceIter))->size + sizeof(mbi_t)))) {
-        if(!mbi->size) return;
-        for(int i = 0; i < mbi->refCount; ++i)
-            llgc_impl_loadBarrier(mbi->start + i);
+    mbi_t* mbi = NULL, *next = NULL;
+    while(mbi = atomic_load(&remapListIter)) {
+        next = mbi->next;
+        if(!atomic_compare_exchange_weak(&remapListIter, &mbi, next)) continue;
+        for(int i = 0; i < mbi->refCount; ++i) 
+            atomic_store(mbi->start + i, mbi->newAddr);
     }
 }
 
