@@ -1,7 +1,5 @@
 # Dyna-Virtual-Machine
-Kaori is the old name
 
-I will push my completed code of this program here.
+In my five-day holiday, I have finished one of the most valuable functions of this virtual machine, the Continuously Concurrent Copying Collector. It's a kind of pause-less garbage collector which means it doesn't depend on the stop-the-world phase ! ! !
 
-Recently, because of my carelessness, many source codes have been disappeared forever, so I would like to use a respository to store it.
-It's also convenient to publish my new research results.
+At present, it just like a toy. In order to make this toy more funny, I won't stop improving and optimizing it.
