@@ -29,7 +29,7 @@ extern size_t gcThrdCount;
 extern rs_t* rootSets;
 extern size_t gcSpaceSize;
 extern atomic_ptrdiff_t fromSpace, toSpace;
-extern atomic_ptrdiff_t source;
+extern void* source;
 
 extern _Atomic size_t collected;
 extern _Atomic size_t allocated;

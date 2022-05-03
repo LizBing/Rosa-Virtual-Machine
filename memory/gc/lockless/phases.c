@@ -16,8 +16,11 @@ static atomic_ptrdiff_t workListEnd;
 
 static _Atomic size_t copied = 0;
 
+atomic_int gcTimeCount = 0;
+int llgc_timeCount() { return atomic_load(&gcTimeCount); }
+
 void llgc_impl_main() {
-    while(1) {
+    for(; ; atomic_fetch_add(&gcTimeCount, 1)) {
         llgc_impl_exchangeSpace();
         atomic_store(&gcTrigger, !gcTrigger);
         workListEnd = NULL;
@@ -39,7 +42,6 @@ void llgc_impl_main() {
     }
 }
 
-
 void llgc_impl_pushWorkList(mbi_t* mbi) {
     if(atomic_fetch_or(&mbi->status, 0b10) & 0b10) return;
     // printf("%p, %zu\n", mbi, mbi->refCount);
@@ -53,7 +55,7 @@ void llgc_impl_pushWorkList(mbi_t* mbi) {
 
 static void objMark() {
     for(mbi_t* obj = atomic_load(&workListIter); obj; obj = atomic_load(&workListIter)) {
-        if(!atomic_compare_exchange_weak(&workListIter, obj, ((mbi_t*)atomic_load(&workListIter))->next)) continue;
+        if(!atomic_compare_exchange_weak(&workListIter, &obj, ((mbi_t*)atomic_load(&workListIter))->next)) continue;
         for(int i = 0; i < obj->refCount; ++i) {
             mbi_t* sub = obj->start[i];
             if(llgc_impl_testSpace(sub)) continue;
@@ -87,7 +89,7 @@ static void mark() {
 
 static void copy() {
     for(mbi_t* obj = atomic_load(&workListIter); obj; obj = atomic_load(&workListIter)) {
-        if(!atomic_compare_exchange_weak(&workListIter, obj, ((mbi_t*)atomic_load(&workListIter))->next)) continue;
+        if(!atomic_compare_exchange_weak(&workListIter, &obj, ((mbi_t*)atomic_load(&workListIter))->next)) continue;
         if(llgc_impl_testSpace(obj)) continue;
         if(atomic_fetch_or(&obj->status, 1) & 1) continue;
         if(atomic_load(&obj->newAddr)) { atomic_fetch_and(&obj->status, 0b10); continue; }

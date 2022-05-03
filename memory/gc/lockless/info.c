@@ -13,7 +13,8 @@ int llgc_init(size_t GCThrdCount, size_t heapSize, void* heapStart) {
     if(!rootSets) return 1;
 
     gcSpaceSize = heapSize / 2;
-    source = fromSpace = heapStart;
+    fromSpace = heapStart;
+    source = heapStart;
     toSpace = fromSpace + gcSpaceSize;
     
     llgc_impl_exchangeAlloc();

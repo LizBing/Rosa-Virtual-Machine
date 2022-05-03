@@ -2,8 +2,10 @@
 
 size_t gcSpaceSize = 0;
 atomic_ptrdiff_t fromSpace, toSpace;
-atomic_ptrdiff_t source;
+void* source;
 static atomic_ptrdiff_t peak;
+
+static atomic_int lock = 0;
 
 void llgc_impl_exchangeSpace() {
     void* temp = fromSpace;
@@ -12,13 +14,31 @@ void llgc_impl_exchangeSpace() {
 }
 
 size_t llgc_impl_exchangeAlloc() {
-    return atomic_exchange(&peak, toSpace) - atomic_exchange(&source, toSpace);
+    int i = 0;
+    while(!atomic_compare_exchange_weak(&lock, &i, -1));
+
+    size_t ret = (void*)peak - source;
+    peak = source = toSpace;
+
+    atomic_store(&lock, 0);
+    return ret;
 }
 
 void* llgc_impl_sbrk(size_t size, size_t refCount, int countable) {
     size_t brkSize = size + sizeof(mbi_t);
-    mbi_t* addr = atomic_fetch_add(&peak, brkSize);
-    if(addr + brkSize >= atomic_load(&source) + gcSpaceSize) return NULL;
+    mbi_t* addr = NULL;
+    while(atomic_load(&lock) == -1);
+    atomic_fetch_add(&lock, 1);
+
+    int tested = 0;
+lable:
+    addr = atomic_fetch_add(&peak, brkSize);
+    if(addr + brkSize >= source + gcSpaceSize) {
+        if(tested) return NULL;
+        int gct = llgc_timeCount();
+        while(gct == llgc_timeCount());
+        tested = 1; goto lable;
+    }
 
     addr->refCount = refCount;
     addr->next = NULL;
@@ -45,7 +65,12 @@ int llgc_impl_testSpace(mbi_t* p) {
 }
 
 int llgc_impl_testSource(mbi_t* p) {
-    void* base = atomic_load(&source);
-    if(base <= p && p < base + gcSpaceSize) return 1;
-    return 0;
+    int ret = 0;
+    while(atomic_load(&lock) == -1);
+    atomic_fetch_add(&lock, 1);
+    if(source <= p && p < source + gcSpaceSize) ret = 1;
+    else ret = 0;
+    atomic_fetch_add(&lock, -1);
+
+    return ret;
 }
