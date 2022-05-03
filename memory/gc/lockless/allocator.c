@@ -18,7 +18,7 @@ size_t llgc_impl_exchangeAlloc() {
 void* llgc_impl_sbrk(size_t size, size_t refCount, int countable) {
     size_t brkSize = size + sizeof(mbi_t);
     mbi_t* addr = atomic_fetch_add(&peak, brkSize);
-    if(addr + size >= atomic_load(&source) + gcSpaceSize) return NULL;
+    if(addr + brkSize >= atomic_load(&source) + gcSpaceSize) return NULL;
 
     addr->refCount = refCount;
     addr->next = NULL;

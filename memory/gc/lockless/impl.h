@@ -8,7 +8,7 @@
 typedef struct MemoryBlockInfo_t mbi_t;
 
 struct MemoryBlockInfo_t {
-    mbi_t* newAddr;
+    atomic_ptrdiff_t newAddr;
     atomic_int status;
     mbi_t* next;
 

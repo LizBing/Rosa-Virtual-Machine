@@ -3,7 +3,7 @@
 
 int main() {
     thrdPoolInit(1);
-    llgc_init(10, 102400, malloc(102400));
+    llgc_init(1, 102400, malloc(102400));
 
     atomic_ptrdiff_t ptr = 0;
     rshdl_t rs = llgc_getRootSet(0);
@@ -14,7 +14,7 @@ int main() {
     }
     */
     atomic_store(&ptr, llgc_malloc(128, 10));
-    for(int j = 0; j < 10; j++) {
+    for(int j = 0; j < 100; j++) {
         printf("round %d:\n", j);
 
         for(int i = 0; i < 10; i++) {
@@ -23,7 +23,7 @@ int main() {
         }
     }
     
-
+    usleep(2000);
     printf("%zu, %zu\n", llgc_allocated(), llgc_collected());
 
     return 0;
