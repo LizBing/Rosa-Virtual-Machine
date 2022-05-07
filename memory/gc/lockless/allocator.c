@@ -1,9 +1,9 @@
 #include "impl.h"
 
 size_t gcSpaceSize = 0;
-atomic_ptrdiff_t fromSpace, toSpace;
+_Atomic(void*) fromSpace, toSpace;
 void* source;
-static atomic_ptrdiff_t peak;
+static _Atomic(size_t) peak = 0;
 
 static atomic_int lock = 0;
 

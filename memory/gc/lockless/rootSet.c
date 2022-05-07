@@ -23,14 +23,22 @@ void llgc_popNextRootSet(rshdl_t node) {
     while(atomic_load(&r->lock)); free(r);
 }
 
-void** llgc_loadRef(atomic_ptrdiff_t* hdl, size_t offs) {
-    return ((byte_t*)llgc_impl_loadBarrier(hdl)->start) + offs;
+_Atomic(void*)* llgc_loadRef(_Atomic(void*)* hdl, size_t idx) {
+    return llgc_impl_loadBarrier(hdl)->start + idx;
 }
 
-void* llgc_load(atomic_ptrdiff_t* hdl, size_t offs) {
-    return *llgc_loadRef(hdl, offs);
+void llgc_storeRef(_Atomic(void*)* hdl, size_t idx, void* value) {
+    mbi_t* mbi = NULL;
+    if(atomic_load(hdl)) mbi = llgc_impl_loadBarrier(hdl);
+    else printf("fuck\n");
+    // printf("afer: %p, %p\n", atomic_load(hdl), mbi);
+    atomic_store(mbi->start + idx, value);
 }
 
-void llgc_store(atomic_ptrdiff_t* hdl, size_t offs, void* value) {
-    *llgc_loadRef(hdl, offs) = value;
+void* llgc_load(_Atomic(void*)* hdl, size_t offs) {
+    return (byte_t*)llgc_impl_loadBarrier(hdl)->start + offs;
+}
+
+void llgc_store(_Atomic(void*)* hdl, size_t offs, void* value) {
+    *(void**)((byte_t*)llgc_impl_loadBarrier(hdl)->start + offs) = value;
 }

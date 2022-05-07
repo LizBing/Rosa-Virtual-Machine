@@ -21,6 +21,9 @@
         "vector": "c",
         "string": "c",
         "string_view": "c",
-        "utility": "c"
+        "utility": "c",
+        "stdbool.h": "c",
+        "__config": "c",
+        "thread.h": "c"
     }
 }

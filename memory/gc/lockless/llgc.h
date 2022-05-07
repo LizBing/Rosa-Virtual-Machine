@@ -18,13 +18,12 @@ rshdl_t llgc_pushRootSet(rshdl_t prv, void** start, size_t refCount);
 void llgc_popNextRootSet(rshdl_t node);
 
 void* llgc_malloc(size_t size, size_t refCount);
-size_t llgc_allocated();
-size_t llgc_collected();
 int llgc_timeCount();
 
-void** llgc_loadRef(atomic_ptrdiff_t* hdl, size_t offs);
-void* llgc_load(atomic_ptrdiff_t* hdl, size_t offs);
-void llgc_store(atomic_ptrdiff_t* hdl, size_t offs, void* value);
+_Atomic(void*)* llgc_loadRef(_Atomic(void*)* hdl, size_t idx);
+void llgc_storeRef(_Atomic(void*)* hdl, size_t idx, void* value);
+void* llgc_load(_Atomic(void*)* hdl, size_t offs);
+void llgc_store(_Atomic(void*)* hdl, size_t offs, void* value);
 
 
 #ifdef __cplusplus
