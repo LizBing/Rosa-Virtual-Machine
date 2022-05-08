@@ -14,7 +14,7 @@ typedef struct RootSet_t rs_t, *prs_t;
 #include <string.h>
 #include <stdatomic.h>
 
-int c4_init(size_t thrdCount, void* heap, size_t heapSize);
+int c4_init(size_t appThrdCount, size_t GCThrdCount, void* heap, size_t heapSize);
 size_t c4_gcThrdCount();
 size_t c4_allocated();
 size_t c4_collected();

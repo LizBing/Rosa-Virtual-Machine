@@ -2,9 +2,10 @@
 
 extern atomic_bool gcCopyFlag;
 
+atomic_short toSpaceID = 0;
 size_t spaceSize = 0;
 byte_t* fromSpace = NULL;
-byte_t* toSpace = NULL;
+_Atomic(byte_t*) toSpace = NULL;
 _Atomic(byte_t*) brk = NULL;
 
 _Atomic(size_t) heapAllocated = 0;
@@ -12,29 +13,20 @@ _Atomic(size_t) heapAllocated = 0;
 static atomic_size_t lock = 0;
 
 size_t c4_impl_exchangeSpace() {
-    const int zero = 0;
-    while(!atomic_compare_exchange_weak(&lock, &zero, -1));
-    size_t delta = brk - toSpace;
-
+    atomic_store(&toSpaceID, !toSpaceID);
+    size_t ret = atomic_exchange(&brk, fromSpace) - toSpace;
     void* temp = toSpace;
-    brk = toSpace = fromSpace;
-    fromSpace = toSpace;
+    atomic_store(&toSpace, fromSpace);
+    fromSpace = temp;
 
-    atomic_store(&lock, 0);
-    return delta;
+    return ret;
 }
 
 pObject_t c4_impl_sbrk(size_t size, size_t refCount, int countable) {
     size_t brkSize = size + sizeof(Object_t);
 
-    while(atomic_load(&lock) == -1);
-    atomic_fetch_add(&lock, 1);
-
     pObject_t ret = atomic_fetch_add(&brk, brkSize);
-    int isIllegal = (byte_t*)ret + brkSize >= toSpace + spaceSize;
-
-    atomic_fetch_add(&lock, -1);
-
+    int isIllegal = (byte_t*)ret + brkSize >= atomic_load(&toSpace) + spaceSize;
     if(isIllegal) return NULL;
 
     if(countable) atomic_fetch_add(&heapAllocated, brkSize);
@@ -44,6 +36,7 @@ pObject_t c4_impl_sbrk(size_t size, size_t refCount, int countable) {
     ret->refCount = refCount;
     ret->size = size;
     ret->status = 0;
+    ret->spaceID = atomic_load(&toSpaceID);
 
     return ret;
 }
@@ -57,6 +50,6 @@ void* c4_malloc(size_t size, size_t refCount) {
         if(!(ret = c4_impl_sbrk(size, refCount, 1))) return NULL;  
     }
 
-    if(!atomic_load(&gcCopyFlag)) c4_impl_pushWorkList(ret);
+    if(!atomic_load(&gcCopyFlag)) { c4_impl_pushWorkList(ret); }
     return ret;
 }

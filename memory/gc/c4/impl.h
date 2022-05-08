@@ -15,6 +15,7 @@ struct Object {
      */ 
     // atomic_int info;
     atomic_bool status;
+    byte_t spaceID;
     _Atomic(pObject_t) newAddr;
     _Atomic(pObject_t) next;
     size_t size;
@@ -31,9 +32,10 @@ struct RootSet_t {
     _Atomic(prs_t) next;
 };
 
-extern byte_t* fromSpace, *toSpace;
+extern atomic_short toSpaceID;
+extern byte_t* fromSpace;
 extern size_t spaceSize;
-extern _Atomic(byte_t*) brk;
+extern _Atomic(byte_t*) brk, toSpace;
 
 extern size_t gcThrdCount;
 extern _Atomic(size_t) gcCollected;
