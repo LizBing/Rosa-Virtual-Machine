@@ -16,6 +16,7 @@
  * ...
  * 
  * Abstract:
+ * ...
  * I consider that every reference in an object should be gather at the start of the object, so that the gc phases can find the location of reachable references easily.
  * 
  */
